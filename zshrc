@@ -28,37 +28,59 @@ fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
 # =====================================================================
-# 3. NVM 【全自动、无感懒加载方案】
+# 3. NVM（推荐方案）
 # =====================================================================
-if [ -s "$NVM_DIR/nvm.sh" ]; then
-    local current_bin
-    current_bin=$(node -e "console.log(process.execPath)" 2>/dev/null | sed 's/\/node$//')
-    
-    if [ -z "$current_bin" ] && [ -d "$NVM_DIR/versions/node" ]; then
-        current_bin=$(ls -d $NVM_DIR/versions/node/* 2>/dev/null | tail -n 1)/bin
+
+export NVM_DIR="$HOME/.nvm"
+
+# ----------------------------------------------------------
+# 把当前最高版本 Node 的 bin 提前加入 PATH
+#
+# 作用：
+#   node
+#   npm
+#   npx
+#   codex
+#   claude
+#   vite
+#   tsx
+#   wrangler
+#   ...
+#
+# 全部立即可用，不需要加载 nvm
+# ----------------------------------------------------------
+
+if [ -d "$NVM_DIR/versions/node" ]; then
+    LATEST_NODE="$(ls -d "$NVM_DIR"/versions/node/* 2>/dev/null | sort -V | tail -n 1)"
+
+    if [ -n "$LATEST_NODE" ]; then
+        export PATH="$LATEST_NODE/bin:$PATH"
     fi
-
-    _load_nvm() {
-        for cmd in nvm node npm npx yarn claude hexo pm2 pnpm ${_nvm_auto_cmds[@]}; do
-            unset -f "$cmd" 2>/dev/null
-        done
-        . "$NVM_DIR/nvm.sh"
-        [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
-    }
-
-    local -a _nvm_auto_cmds
-    _nvm_auto_cmds=(nvm node npm npx yarn claude)
-
-    if [ -d "$current_bin" ]; then
-        for binary in $(ls "$current_bin"); do
-            _nvm_auto_cmds+=("$binary")
-        done
-    fi
-
-    for cmd in ${(u)_nvm_auto_cmds}; do
-        eval "$cmd() { _load_nvm; \$0 \"\$@\"; }"
-    done
 fi
+
+
+# ----------------------------------------------------------
+# nvm 懒加载
+#
+# 只有真正执行：
+#
+#     nvm install
+#     nvm use
+#     nvm ls
+#
+# 才加载 nvm.sh
+# ----------------------------------------------------------
+
+nvm() {
+    unset -f nvm
+
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
+    [ -s "$NVM_DIR/bash_completion" ] && \
+        source "$NVM_DIR/bash_completion"
+
+    nvm "$@"
+}
 
 # =====================================================================
 # 4. 开发工具链与其他优化
@@ -83,13 +105,15 @@ alias la='ls -A'
 alias l='ls -CF'
 alias sl='ls'
 alias clz='clear'
-alias py='python' 
+alias py='python'
 
 alias update='sudo apt update && sudo apt upgrade'
 alias y='yazi'
 alias c='code .'
 alias t='trae-cn .'
 alias api='apifox'
+alias mconda='mv /home/jiy/workspace/miniconda3 /home/jiy/workspace/temp/miniconda3'
+alias bconda='mv /home/jiy/workspace/temp/miniconda3 /home/jiy/workspace/miniconda3'
 
 # 如果有独立的别名文件则加载
 if [ -f ~/.bash_aliases ]; then
@@ -97,8 +121,36 @@ if [ -f ~/.bash_aliases ]; then
 fi
 
 # =====================================================================
-# 6. 灵魂
+# 6. 终端美化灵魂 (Starship 提示符)
 # =====================================================================
 if command -v starship &> /dev/null; then
     eval "$(starship init zsh)"
 fi
+
+# OpenClaw Completion
+[ -f "/home/jiy/.openclaw/completions/openclaw.zsh" ] && source "/home/jiy/.openclaw/completions/openclaw.zsh"
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/home/jiy/workspace/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/home/jiy/workspace/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "/home/jiy/workspace/miniconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/home/jiy/workspace/miniconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+
+export DEEPSEEK_API_KEY=sk-placeholder
+
+# pnpm
+export PNPM_HOME="/home/jiy/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+# pnpm end
